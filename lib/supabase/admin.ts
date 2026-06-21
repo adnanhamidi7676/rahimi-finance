@@ -1,0 +1,19 @@
+import { createClient as createAdminSupabase } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
+
+/**
+ * Service-role Supabase client. Bypasses Row Level Security — use ONLY in
+ * trusted server-side code (server actions / route handlers) for admin tasks
+ * such as inviting users. Never import this into a Client Component.
+ */
+export function createAdminClient() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set");
+  }
+  return createAdminSupabase<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+}
