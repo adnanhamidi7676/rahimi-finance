@@ -95,23 +95,38 @@ export function ProjectSheet({
     const supabase = createClient();
 
     let error;
+    let affected: unknown[] | null = null;
     if (isEdit && project) {
-      ({ error } = await supabase
+      // .select() returns the updated rows; an empty array means nothing was
+      // updated (e.g. RLS blocked it) — Supabase reports no error in that case.
+      const res = await supabase
         .from("projects")
         .update(parsed.data)
-        .eq("id", project.id));
+        .eq("id", project.id)
+        .select("id");
+      error = res.error;
+      affected = res.data;
     } else {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      ({ error } = await supabase
+      const res = await supabase
         .from("projects")
-        .insert({ ...parsed.data, created_by: user?.id ?? null }));
+        .insert({ ...parsed.data, created_by: user?.id ?? null })
+        .select("id");
+      error = res.error;
+      affected = res.data;
     }
     setPending(false);
 
     if (error) {
       toast.error(error.message);
+      return;
+    }
+    if (!affected || affected.length === 0) {
+      toast.error(
+        "Saved nothing — your account may not have write permission.",
+      );
       return;
     }
 

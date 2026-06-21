@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MoreVertical, Pencil, Plus, Search, Trash2, Wifi } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, Wifi } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { fetchProjects } from "@/lib/db/projects";
@@ -21,12 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ProjectSheet } from "./project-sheet";
 import type {
   Project,
@@ -154,9 +148,22 @@ export function ProjectsClient({
     if (!window.confirm(`Delete project "${p.project_name}"? This cannot be undone.`))
       return;
     const supabase = createClient();
-    const { error } = await supabase.from("projects").delete().eq("id", p.id);
+    // .select() returns the affected rows; an empty result means the row was
+    // not deleted (e.g. RLS blocked it) — Supabase does NOT raise an error in
+    // that case, so we check the count ourselves.
+    const { data, error } = await supabase
+      .from("projects")
+      .delete()
+      .eq("id", p.id)
+      .select("id");
     if (error) {
       toast.error(error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      toast.error(
+        "Couldn't delete — your account may not have write permission.",
+      );
       return;
     }
     toast.success("Project deleted");
@@ -281,7 +288,7 @@ export function ProjectsClient({
                   <TableHead className={cn("text-right", COMPUTED)}>
                     Remaining
                   </TableHead>
-                  {canWrite ? <TableHead className="w-10" /> : null}
+                  {canWrite ? <TableHead className="w-20" /> : null}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -432,28 +439,26 @@ function RowActions({
   onDelete: () => void;
 }) {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="ghost" size="icon-sm" aria-label="Row actions">
-            <MoreVertical className="size-4" />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onEdit}>
-          <Pencil className="mr-2 size-4" />
-          Edit
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={onDelete}
-          className="text-destructive focus:text-destructive"
-        >
-          <Trash2 className="mr-2 size-4" />
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex justify-end gap-0.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Edit project"
+        onClick={onEdit}
+      >
+        <Pencil className="size-4" />
+      </Button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Delete project"
+        onClick={onDelete}
+      >
+        <Trash2 className="size-4 text-destructive" />
+      </Button>
+    </div>
   );
 }
 
